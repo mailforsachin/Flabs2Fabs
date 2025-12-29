@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flabs2Fabs Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .success { color: green; }
+        .error { color: red; }
+        .result { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Flabs2Fabs Connection Test</h1>
+    
+    <div>
+        <button onclick="testDirectBackend()">Test Direct Backend (port 8008)</button>
+        <button onclick="testViaNginx()">Test Via Nginx (HTTPS)</button>
+        <button onclick="testLogin()">Test Login</button>
+    </div>
+    
+    <div id="results"></div>
+    
+    <script>
+        function logResult(title, message, isError = false) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'result';
+            div.innerHTML = `<h3>${title}</h3><pre class="${isError ? 'error' : 'success'}">${message}</pre>`;
+            results.appendChild(div);
+        }
+        
+        function testDirectBackend() {
+            logResult('Direct Backend Test', 'Testing...');
+            fetch('http://localhost:8008/health')
+                .then(response => response.json())
+                .then(data => {
+                    logResult('Direct Backend Test', JSON.stringify(data, null, 2));
+                })
+                .catch(error => {
+                    logResult('Direct Backend Test', error.toString(), true);
+                });
+        }
+        
+        function testViaNginx() {
+            logResult('Nginx Test', 'Testing...');
+            fetch('/api/auth/status')
+                .then(response => {
+                    const result = `Status: ${response.status} ${response.statusText}\nURL: ${response.url}`;
+                    return response.text().then(text => result + '\nResponse: ' + text);
+                })
+                .then(data => {
+                    logResult('Nginx Test', data, data.includes('404'));
+                })
+                .catch(error => {
+                    logResult('Nginx Test', error.toString(), true);
+                });
+        }
+        
+        function testLogin() {
+            logResult('Login Test', 'Testing...');
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: 'sashy',
+                    password: 'Welcome2026!'
+                })
+            })
+            .then(response => {
+                const result = `Status: ${response.status} ${response.statusText}`;
+                if (response.ok) {
+                    return response.json().then(data => result + '\nToken: ' + (data.access_token ? data.access_token.substring(0, 30) + '...' : 'No token'));
+                } else {
+                    return response.text().then(text => result + '\nError: ' + text);
+                }
+            })
+            .then(data => {
+                logResult('Login Test', data, !data.includes('Token:'));
+            })
+            .catch(error => {
+                logResult('Login Test', error.toString(), true);
+            });
+        }
+    </script>
+</body>
+</html>

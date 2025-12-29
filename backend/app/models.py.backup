@@ -1,0 +1,75 @@
+from sqlalchemy import (
+    Column, Integer, String, Boolean, Date, DateTime,
+    Enum, Float, ForeignKey
+)
+from sqlalchemy.sql import func
+from app.database import Base
+import enum
+
+
+class MuscleGroup(enum.Enum):
+    chest = "chest"
+    back = "back"
+    legs = "legs"
+    shoulders = "shoulders"
+    biceps = "biceps"
+    triceps = "triceps"
+    core = "core"
+    full_body = "full_body"
+
+
+class Equipment(enum.Enum):
+    bodyweight = "bodyweight"
+    dumbbells = "dumbbells"
+    barbell = "barbell"
+    machine = "machine"
+    cables = "cables"
+
+
+class Exercise(Base):
+    __tablename__ = "exercises"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    normalized_name = Column(String(100), index=True)
+
+    muscle_group_main = Column(Enum(MuscleGroup))
+    equipment = Column(Enum(Equipment))
+    difficulty = Column(String(20))  # beginner/intermediate/advanced
+
+    description = Column(String(500))
+    instructions = Column(String(1000))
+
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class WorkoutLog(Base):
+    __tablename__ = "workout_logs"
+
+    id = Column(Integer, primary_key=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+    exercise_id = Column(Integer, ForeignKey("exercises.id"))
+
+    workout_date = Column(Date)
+
+    sets = Column(Integer)
+    reps_per_set = Column(String(50))  # "10,8,6"
+    weight_kg = Column(Float)
+
+    total_reps = Column(Integer)
+    volume_kg = Column(Float)
+
+    location = Column(String(20))  # home/gym
+    perceived_exertion = Column(Integer)
+
+    # Override tracking
+    user_override = Column(Boolean, default=False)
+    original_recommendation = Column(String(1000))
+
+    # Offline sync support
+    sync_status = Column(String(20), default="synced")  # pending/synced/conflict
+    client_timestamp = Column(DateTime)
+
+    created_at = Column(DateTime, server_default=func.now())

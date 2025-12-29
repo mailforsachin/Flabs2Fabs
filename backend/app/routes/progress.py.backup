@@ -1,0 +1,235 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Dict, Any, Optional, List
+from datetime import datetime, timedelta
+import random
+import math
+
+from app.database import get_db
+from app.dependencies import get_current_user
+from app.progress_projections import ProgressProjector
+
+router = APIRouter()
+
+@router.get("/strength-projections")
+async def get_strength_projections(
+    days_back: int = 30,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Calculate what strength gains COULD have been achieved"""
+    try:
+        projector = ProgressProjector(db, current_user["id"])
+        return projector.get_strength_projections(days_back)
+    except Exception as e:
+        print(f"Error in strength projections: {e}")
+        return {
+            "user_id": current_user["id"],
+            "projections": {
+                "knowledge_level": "novice",
+                "base_progression_rate_kg_week": 0.0,
+                "emotional_impact": {
+                    "total_missed_kg": 0.0,
+                    "average_opportunity": 0.0,
+                    "motivation_messages": [
+                        "Limited data available for accurate projections",
+                        "Focus on consistency first, strength gains will follow"
+                    ]
+                },
+                "summary": {
+                    "overall_verdict": "Build training history for personalized insights",
+                    "most_opportunity_exercise": {
+                        "name": "Not enough data",
+                        "missed_kg": 0.0
+                    }
+                }
+            },
+            "data_quality": "low",
+            "note": "Complete more workouts for accurate projections"
+        }
+
+@router.get("/consistency-projections")
+async def get_consistency_projections(
+    days_back: int = 30,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Calculate consistency gaps and what could have been"""
+    try:
+        projector = ProgressProjector(db, current_user["id"])
+        return projector.get_consistency_projections(days_back)
+    except Exception as e:
+        print(f"Error in consistency projections: {e}")
+        return {
+            "user_id": current_user["id"],
+            "projections": {
+                "actual_workouts": 0,
+                "projected_workouts": 0,
+                "missed_workouts": 0,
+                "consistency_score": 0,
+                "current_streak_days": 0,
+                "best_streak_days": 0,
+                "projected_streak_days": 0
+            }
+        }
+
+@router.get("/comprehensive-report")
+async def get_comprehensive_report(
+    days_back: int = 30,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Generate comprehensive progress report"""
+    try:
+        projector = ProgressProjector(db, current_user["id"])
+        return projector.get_comprehensive_progress_report(days_back)
+    except Exception as e:
+        print(f"Error in comprehensive report: {e}")
+        return {
+            "user_id": current_user["id"],
+            "error": "Could not generate comprehensive report",
+            "message": "Please complete more workouts for detailed analysis",
+            "overall_progress_score": 0,
+            "emotional_state": {
+                "opportunity_message": "Start tracking workouts to unlock insights",
+                "motivational_quote": "The best time to start was yesterday. The second best time is now.",
+                "sentiment": "hopeful"
+            }
+        }
+
+@router.get("/motivational-insights")
+async def get_motivational_insights(
+    days_back: int = 30,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Generate motivational insights based on user's progress
+    
+    This is a simpler version that wraps the comprehensive report
+    """
+    try:
+        # Get the comprehensive report
+        report = await get_comprehensive_report(days_back, db, current_user)
+        
+        # Extract emotional summary from the report
+        emotional_summary = report.get("emotional_summary", {})
+        
+        # Generate simple motivational messages
+        score = report.get("overall_progress_score", 0)
+        
+        if score > 80:
+            mood = "excellent"
+            messages = [
+                "🏆 Champion performance! You're crushing your goals!",
+                "Your consistency is paying off big time!",
+                "Keep this momentum going - you're unstoppable!"
+            ]
+        elif score > 60:
+            mood = "good"
+            messages = [
+                "💪 Great progress! You're on the right track!",
+                "Your hard work is showing results!",
+                "Stay consistent and watch your progress soar!"
+            ]
+        elif score > 40:
+            mood = "okay"
+            messages = [
+                "📈 Making progress! Every workout counts!",
+                "You're building the foundation for success!",
+                "Stay patient - results are coming!"
+            ]
+        else:
+            mood = "motivated"
+            messages = [
+                "🎯 Time to level up! Your potential is waiting!",
+                "The first step is always the hardest - you've got this!",
+                "Every champion started where you are now!"
+            ]
+        
+        return {
+            "user_id": current_user["id"],
+            "generated_at": datetime.now().isoformat(),
+            "mood": mood,
+            "progress_score": score,
+            "motivational_messages": messages,
+            "key_insight": emotional_summary.get("message", "Start tracking to see insights!"),
+            "recommended_action": "Complete your next workout to improve your score!",
+            "quote": emotional_summary.get("motivational_quote", "The only bad workout is the one that didn't happen.")
+        }
+        
+    except Exception as e:
+        print(f"Error in motivational insights: {e}")
+        return {
+            "user_id": current_user["id"],
+            "error": "Could not generate motivational insights",
+            "message": "Complete a workout to unlock personalized insights",
+            "motivational_messages": [
+                "Every journey begins with a single step.",
+                "You're stronger than you think.",
+                "Today is a new opportunity to get closer to your goals."
+            ]
+        }
+
+@router.get("/missed-opportunities")
+async def get_missed_opportunities(
+    days_back: int = 30,
+    db: Session = Depends(get_db),
+    current_user: Dict = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Calculate missed opportunities"""
+    try:
+        # Get strength projections
+        strength_data = await get_strength_projections(days_back, db, current_user)
+        strength_proj = strength_data.get("projections", {})
+        
+        # Get consistency projections  
+        consistency_data = await get_consistency_projections(days_back, db, current_user)
+        consistency_proj = consistency_data.get("consistency_projection", {})
+        
+        # Extract missed opportunities
+        strength_missed = 0
+        if "emotional_impact" in strength_proj:
+            strength_missed = strength_proj["emotional_impact"].get("total_missed_kg", 0)
+        
+        workouts_missed = 0
+        if "gap_analysis" in consistency_proj:
+            workouts_missed = consistency_proj["gap_analysis"].get("missed_workouts", 0)
+        
+        # Calculate financial cost (approx $25/workout)
+        financial_cost = workouts_missed * 25.0
+        
+        return {
+            "user_id": current_user["id"],
+            "analysis_period_days": days_back,
+            "strength_missed_kg": strength_missed,
+            "workouts_missed": workouts_missed,
+            "financial_opportunity_cost": round(financial_cost, 1),
+            "emotional_impact": {
+                "feelings": [
+                    f"You could be {strength_missed:.1f}kg stronger",
+                    f"You missed {workouts_missed} potential workouts"
+                ] if strength_missed > 0 or workouts_missed > 0 else [
+                    "No missed opportunities detected!",
+                    "You're maximizing your training time!"
+                ]
+            },
+            "recovery_plan": {
+                "time_to_recover_days": min(30, workouts_missed * 2),
+                "first_step": "Complete your next workout on schedule",
+                "action_items": [
+                    "Schedule your next workout now",
+                    "Aim for 3 workouts this week",
+                    "Track every session"
+                ]
+            }
+        }
+        
+    except Exception as e:
+        print(f"Error in missed opportunities: {e}")
+        return {
+            "user_id": current_user["id"],
+            "message": "Complete more workouts to analyze missed opportunities",
+            "strength_missed_kg": 0,
+            "workouts_missed": 0
+        }

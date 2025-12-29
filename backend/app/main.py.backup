@@ -1,0 +1,43 @@
+from fastapi import FastAPI
+from app.database import Base, engine
+from app.routes import auth, admin, system, exercise, workout, recommendation, intelligence, progress
+
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(
+    title="Flab2Fabs API",
+    description="Intelligent fitness tracking with emotional insights",
+    version="3.0.0"
+)
+
+# Based on the route check, we need to include routers with correct prefixes
+# Auth router already has /api prefix in its routes, so we don't add another
+app.include_router(auth.router)
+app.include_router(admin.router)
+app.include_router(system.router)
+app.include_router(exercise.router)
+app.include_router(workout.router)
+app.include_router(recommendation.router)
+app.include_router(intelligence.router)
+app.include_router(progress.router)
+
+@app.get("/")
+def read_root():
+    return {
+        "message": "Flab2Fabs API v3.0 - The Emotional Training Partner",
+        "version": "3.0.0",
+        "docs": "/docs",
+        "features": [
+            "✅ Basic API (Auth, Exercises, Workouts)",
+            "✅ Recommendation Engine (Phase C)",
+            "🧠 Knowledge Level Tracking (C+)",
+            "📈 Override Pattern Analysis (C++)",
+            "💔 Progress Projections (Phase D)",
+            "🎯 Emotional Insights & Motivation",
+            "📊 'What Could Have Been' Analysis"
+        ]
+    }
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "timestamp": "2025-12-29T01:00:00Z"}

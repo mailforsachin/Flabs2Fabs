@@ -1,0 +1,158 @@
+"""
+📈 D - Progress Projections Routes
+The emotional hook: "What could have been?"
+"""
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.dependencies import get_current_user
+from app.models import User
+from app.progress_projections import ProgressProjector
+
+router = APIRouter(prefix="/api/progress", tags=["progress"])
+
+@router.get("/strength-projections")
+def get_strength_projections(
+    days_back: int = 90,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get strength projections: Actual vs "What could have been"
+    Shows missed opportunities and potential gains
+    """
+    projector = ProgressProjector(db, current_user.id)
+    projections = projector.get_strength_projections(days_back)
+    
+    return {
+        "user_id": current_user.id,
+        "username": current_user.username,
+        "projections": projections
+    }
+
+@router.get("/consistency-projections")
+def get_consistency_projections(
+    days_back: int = 90,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get consistency projections and missed workout opportunities
+    """
+    projector = ProgressProjector(db, current_user.id)
+    projections = projector.get_consistency_projections(days_back)
+    
+    return {
+        "user_id": current_user.id,
+        "projections": projections
+    }
+
+@router.get("/comprehensive-report")
+def get_comprehensive_progress_report(
+    days_back: int = 90,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get comprehensive progress report with emotional impact analysis
+    Combines strength, consistency, and "what if" scenarios
+    """
+    projector = ProgressProjector(db, current_user.id)
+    report = projector.get_comprehensive_progress_report(days_back)
+    
+    return {
+        "user_id": current_user.id,
+        "username": current_user.username,
+        "report": report
+    }
+
+@router.get("/motivational-insights")
+def get_motivational_insights(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get motivational insights based on progress projections
+    Emotional, actionable insights to drive behavior change
+    """
+    projector = ProgressProjector(db, current_user.id)
+    report = projector.get_comprehensive_progress_report(90)
+    
+    # Extract key motivational elements
+    emotional = report["report"]["emotional_summary"]
+    insights = report["report"]["actionable_insights"]
+    potential = report["report"]["next_30_day_potential"]
+    
+    return {
+        "user_id": current_user.id,
+        "mood": emotional["mood"],
+        "icon": emotional["icon"],
+        "main_message": emotional["message"],
+        "key_metric": emotional["key_metric"],
+        "motivational_quote": emotional["motivational_quote"],
+        "top_insights": insights,
+        "next_30_days": potential,
+        "call_to_action": f"Aim for {potential['strength_potential_kg']}kg stronger in 30 days!"
+    }
+
+@router.get("/missed-opportunities")
+def get_missed_opportunities(
+    days_back: int = 90,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get specific missed opportunities analysis
+    The "pain point" that drives behavior change
+    """
+    projector = ProgressProjector(db, current_user.id)
+    strength = projector.get_strength_projections(days_back)
+    consistency = projector.get_consistency_projections(days_back)
+    
+    # Calculate total missed opportunity
+    strength_missed = strength.get("emotional_impact", {}).get("total_missed_kg", 0)
+    consistency_missed = consistency.get("consistency_projection", {}).get("gap_analysis", {}).get("missed_workouts", 0)
+    
+    # Convert to emotional impact
+    emotional_impact = []
+    
+    if strength_missed > 10:
+        emotional_impact.append({
+            "type": "strength",
+            "severity": "high",
+            "message": f"You could be {strength_missed:.0f}kg stronger overall",
+            "impact": "Significant strength potential untapped",
+            "feeling": "Frustration at leaving gains on the table"
+        })
+    
+    if consistency_missed > 8:
+        emotional_impact.append({
+            "type": "consistency",
+            "severity": "medium",
+            "message": f"You missed {consistency_missed} potential workouts",
+            "impact": "Lost momentum and habit strength",
+            "feeling": "Regret for inconsistent effort"
+        })
+    
+    # Calculate financial equivalent (gym membership value)
+    avg_gym_cost = 50  # $/month
+    months = days_back / 30
+    financial_waste = (consistency_missed / (4 * months)) * avg_gym_cost  # Approx
+    
+    return {
+        "user_id": current_user.id,
+        "analysis_period_days": days_back,
+        "total_missed_opportunity": {
+            "strength_kg": round(strength_missed, 1),
+            "workouts": consistency_missed,
+            "estimated_financial_waste": round(financial_waste, 2),
+            "summary": f"Missed: {strength_missed:.0f}kg strength, {consistency_missed} workouts"
+        },
+        "emotional_impact": emotional_impact,
+        "recovery_plan": {
+            "time_to_recover_days": int(consistency_missed * 2),  # 2 days per missed workout
+            "focus_areas": [impact["type"] for impact in emotional_impact],
+            "first_step": "Commit to next 7 days of consistent training"
+        }
+    }
